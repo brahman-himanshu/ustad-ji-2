@@ -26,6 +26,10 @@ export default function Navbar() {
 
   const showAuth = mounted && !isLoading;
 
+  const filteredNavLinks = navLinks.filter(
+    (link) => !(isAuthenticated && link.href.includes("/worker"))
+  );
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/20 bg-white/80 backdrop-blur-lg">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -39,7 +43,7 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
+          {filteredNavLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -100,7 +104,7 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="border-t border-emerald-100 bg-white/95 px-4 py-4 md:hidden">
           <div className="flex flex-col gap-3">
-            {navLinks.map((link) => (
+            {filteredNavLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}

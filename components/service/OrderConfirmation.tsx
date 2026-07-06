@@ -1,12 +1,17 @@
 "use client";
 
-import Link from "next/link";
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Home, MapPin } from "lucide-react";
 import Button from "@/components/Button";
+import Modal from "@/components/Modal";
 import { formatCurrency } from "@/utils/priceCalculation";
 import { useServiceBooking } from "@/context/ServiceBookingContext";
 
 export default function OrderConfirmation() {
+  const router = useRouter();
   const {
     selectedService,
     selectedPreference,
@@ -20,6 +25,32 @@ export default function OrderConfirmation() {
     resetBooking,
   } = useServiceBooking();
 
+  const [showSuccessPopup, setShowSuccessPopup] = useState(true);
+  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRedirectedRef = useRef(false);
+
+  const handleGoHome = () => {
+    if (hasRedirectedRef.current) return;
+    hasRedirectedRef.current = true;
+    if (redirectTimerRef.current) {
+      clearTimeout(redirectTimerRef.current);
+    }
+    resetBooking();
+    router.push("/");
+  };
+
+  useEffect(() => {
+    redirectTimerRef.current = setTimeout(() => {
+      handleGoHome();
+    }, 5000);
+
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
+
   const formattedDate = selectedDate
     ? new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", {
         weekday: "long",
@@ -29,12 +60,27 @@ export default function OrderConfirmation() {
       })
     : "—";
 
-  const handleGoHome = () => {
-    resetBooking();
-  };
-
   return (
     <div className="text-center">
+      <Modal
+        isOpen={showSuccessPopup}
+        onClose={() => setShowSuccessPopup(false)}
+        title="Order Confirmed"
+      >
+        <div className="flex flex-col items-center py-6 text-center">
+          <div className="mb-4 rounded-full bg-emerald-100 p-3 text-emerald-600">
+            <CheckCircle2 className="h-10 w-10" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900">Order Confirmed</h3>
+          <p className="mt-2 text-sm text-gray-600">
+            Your booking has been confirmed successfully.
+          </p>
+          <p className="mt-4 text-xs text-gray-400">
+            Redirecting to Home page in 5 seconds...
+          </p>
+        </div>
+      </Modal>
+
       <div className="mx-auto mb-6 inline-flex rounded-full bg-emerald-100 p-4">
         <CheckCircle2 className="h-12 w-12 text-emerald-600" />
       </div>
@@ -106,12 +152,10 @@ export default function OrderConfirmation() {
         )}
       </div>
 
-      <Link href="/" onClick={handleGoHome} className="mt-8 inline-block">
-        <Button size="lg">
-          <Home className="h-5 w-5" />
-          Go To Home
-        </Button>
-      </Link>
+      <Button size="lg" onClick={handleGoHome} className="mt-8">
+        <Home className="h-5 w-5" />
+        Go To Home
+      </Button>
     </div>
   );
 }

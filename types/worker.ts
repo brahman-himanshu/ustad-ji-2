@@ -16,11 +16,16 @@ export interface WorkerCreatePayload {
   profile_image: string;
   aadhaar_front: string;
   aadhaar_back: string;
+  latitude?: number;
+  longitude?: number;
+  is_available?: boolean;
 }
 
 export interface WorkerProfile extends WorkerCreatePayload {
   worker_id?: number;
   id?: number;
+  status?: string;
+  rejection_reason?: string;
 }
 
 export interface WorkerAccount {

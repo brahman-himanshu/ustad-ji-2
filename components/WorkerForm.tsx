@@ -49,6 +49,7 @@ interface WorkerFormProps {
   isSubmitting?: boolean;
   onSubmit: (data: WorkerCreatePayload) => Promise<void>;
   onCancel?: () => void;
+  excludeImages?: boolean;
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -92,6 +93,7 @@ export default function WorkerForm({
   isSubmitting = false,
   onSubmit,
   onCancel,
+  excludeImages = false,
 }: WorkerFormProps) {
   const [imagePreview, setImagePreview] = useState(initialData?.profile_image ?? "");
 
@@ -230,43 +232,45 @@ export default function WorkerForm({
         {...register("aadhaar_number")}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Profile Image</label>
-          <input
-            type="file"
-            accept="image/*"
-            className="w-full text-sm text-gray-600"
-            onChange={(e) => handleImageChange("profile_image", e.target.files?.[0])}
-          />
-          {imagePreview && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imagePreview}
-              alt="Profile preview"
-              className="mt-2 h-20 w-20 rounded-xl object-cover"
+      {!excludeImages && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Profile Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              className="w-full text-sm text-gray-600"
+              onChange={(e) => handleImageChange("profile_image", e.target.files?.[0])}
             />
-          )}
+            {imagePreview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imagePreview}
+                alt="Profile preview"
+                className="mt-2 h-20 w-20 rounded-xl object-cover"
+              />
+            )}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Aadhaar Front</label>
+            <input
+              type="file"
+              accept="image/*"
+              className="w-full text-sm text-gray-600"
+              onChange={(e) => handleImageChange("aadhaar_front", e.target.files?.[0])}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Aadhaar Back</label>
+            <input
+              type="file"
+              accept="image/*"
+              className="w-full text-sm text-gray-600"
+              onChange={(e) => handleImageChange("aadhaar_back", e.target.files?.[0])}
+            />
+          </div>
         </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Aadhaar Front</label>
-          <input
-            type="file"
-            accept="image/*"
-            className="w-full text-sm text-gray-600"
-            onChange={(e) => handleImageChange("aadhaar_front", e.target.files?.[0])}
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Aadhaar Back</label>
-          <input
-            type="file"
-            accept="image/*"
-            className="w-full text-sm text-gray-600"
-            onChange={(e) => handleImageChange("aadhaar_back", e.target.files?.[0])}
-          />
-        </div>
-      </div>
+      )}
 
       <div className="flex gap-3 pt-2">
         {onCancel && (
