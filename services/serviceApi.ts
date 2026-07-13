@@ -82,37 +82,23 @@ function mapApiService(record: ApiServiceRecord, index: number): Service {
   };
 }
 
-function getServiceGroupKey(skillName: string): string {
-  const normalized = skillName.trim().toLowerCase();
-  const words = normalized.split(/\s+/);
-  return words[words.length - 1] || normalized;
-}
-
 function mapSkillsToServices(skills: ApiSkill[]): Service[] {
-  const groups = new Map<string, ApiSkill[]>();
-
-  for (const skill of skills) {
-    const key = getServiceGroupKey(skill.skill_name);
-    const existing = groups.get(key) ?? [];
-    existing.push(skill);
-    groups.set(key, existing);
-  }
-
-  return Array.from(groups.entries()).map(([key, groupSkills]) => {
-    const title = capitalize(key);
-    const preferences: ServicePreference[] = groupSkills.map((skill) => ({
-      id: String(skill.id),
-      label: capitalize(skill.skill_name),
-      description: `${capitalize(skill.skill_name)} service option`,
-    }));
+  return skills.map((skill) => {
+    const title = capitalize(skill.skill_name);
 
     return {
-      id: key,
+      id: String(skill.id),
       title,
       description: `Professional ${title} services for your home.`,
       icon: getServiceIcon(title),
       workerType: title,
-      preferences,
+      preferences: [
+        {
+          id: String(skill.id),
+          label: title,
+          description: `${title} service option`,
+        },
+      ],
     };
   });
 }
