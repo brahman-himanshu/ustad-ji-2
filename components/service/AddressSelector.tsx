@@ -1,15 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { Check, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/context/AuthContext";
 import { useServiceBooking } from "@/context/ServiceBookingContext";
+import { addAddress, fetchAddresses } from "@/services/bookingApi";
+import { getApiErrorMessage } from "@/lib/axios";
 import { ADDRESSES_STORAGE_KEY, BookingAddress } from "@/types/booking";
 
 const addressSchema = z.object({
@@ -81,6 +84,32 @@ export default function AddressSelector() {
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadingRemote, setLoadingRemote] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+    setLoadingRemote(true);
+
+    void fetchAddresses(user.id)
+      .then((remote) => {
+        if (cancelled || remote.length === 0) return;
+        setSavedAddresses(remote);
+        saveAddresses(remote);
+      })
+      .catch(() => {
+        /* keep localStorage fallback */
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRemote(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const addresses = useMemo(() => {
     if (savedAddresses.length > 0) return savedAddresses;
@@ -128,29 +157,52 @@ export default function AddressSelector() {
     setModalOpen(true);
   };
 
-  const onSubmit = (data: AddressFormData) => {
-    let updated: BookingAddress[];
+  const onSubmit = async (data: AddressFormData) => {
+    setIsSaving(true);
+    try {
+      let updated: BookingAddress[];
 
-    if (editingId) {
-      updated = addresses.map((a) =>
-        a.id === editingId ? { ...a, ...data } : a
-      );
-    } else {
-      const newAddress: BookingAddress = {
-        id: createAddressId(),
-        ...data,
-      };
-      updated = [...addresses, newAddress];
+      if (editingId) {
+        const existing = addresses.find((a) => a.id === editingId);
+        let merged: BookingAddress = {
+          id: editingId,
+          backendId: existing?.backendId,
+          fullName: data.fullName,
+          phone: data.phone,
+          address: data.address,
+          city: data.city,
+          pincode: data.pincode,
+        };
+
+        if (user?.id && !merged.backendId) {
+          const savedRemote = await addAddress(user.id, data);
+          merged = { ...merged, id: savedRemote.id, backendId: savedRemote.backendId };
+        }
+
+        updated = addresses.map((a) => (a.id === editingId ? merged : a));
+        persistAddresses(updated);
+        setSelectedAddress(merged);
+      } else if (user?.id) {
+        const savedRemote = await addAddress(user.id, data);
+        updated = [...addresses.filter((a) => a.id !== "profile-default"), savedRemote];
+        persistAddresses(updated);
+        setSelectedAddress(savedRemote);
+      } else {
+        const newAddress: BookingAddress = {
+          id: createAddressId(),
+          ...data,
+        };
+        updated = [...addresses, newAddress];
+        persistAddresses(updated);
+        setSelectedAddress(newAddress);
+      }
+
+      setModalOpen(false);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to save address"));
+    } finally {
+      setIsSaving(false);
     }
-
-    persistAddresses(updated);
-
-    const saved = editingId
-      ? updated.find((a) => a.id === editingId)
-      : updated[updated.length - 1];
-    if (saved) setSelectedAddress(saved);
-
-    setModalOpen(false);
   };
 
   const handleDelete = (id: string) => {
@@ -174,7 +226,11 @@ export default function AddressSelector() {
         </Button>
       </div>
 
-      {addresses.length === 0 ? (
+      {loadingRemote && addresses.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 px-6 py-10 text-center">
+          <p className="font-medium text-gray-700">Loading addresses...</p>
+        </div>
+      ) : addresses.length === 0 ? (
         <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 px-6 py-10 text-center">
           <MapPin className="mx-auto mb-3 h-10 w-10 text-emerald-300" />
           <p className="font-medium text-gray-700">No addresses saved</p>
@@ -292,7 +348,7 @@ export default function AddressSelector() {
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1">
+            <Button type="submit" className="flex-1" isLoading={isSaving}>
               {editingId ? "Save Changes" : "Add Address"}
             </Button>
           </div>

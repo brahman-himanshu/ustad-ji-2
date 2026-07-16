@@ -10,6 +10,8 @@ export type BookingType = "full_time" | "hourly";
 
 export interface BookingAddress {
   id: string;
+  /** Numeric id from the customer backend address API, used by create-booking. */
+  backendId?: number;
   fullName: string;
   phone: string;
   address: string;

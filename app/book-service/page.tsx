@@ -1,13 +1,21 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Banknote } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Button from "@/components/Button";
+import { useAuth } from "@/context/AuthContext";
 import { ServiceBookingProvider, useServiceBooking } from "@/context/ServiceBookingContext";
 import { BOOKING_STEPS, BookingStep } from "@/types/booking";
 import { fetchServiceById } from "@/services/serviceApi";
+import {
+  createBooking,
+  ensureAddressId,
+  getBookingLocation,
+} from "@/services/bookingApi";
+import { getApiErrorMessage } from "@/lib/axios";
 import ServiceSelection from "@/components/service/ServiceSelection";
 import PreferenceSelection from "@/components/service/PreferenceSelection";
 import BookingDetails from "@/components/service/BookingDetails";
@@ -64,11 +72,58 @@ function StepIndicator({ currentStep }: { currentStep: BookingStep }) {
 }
 
 function PaymentStep() {
+  const { user } = useAuth();
   const {
+    selectedService,
+    selectedPreference,
+    selectedDate,
+    selectedTime,
+    selectedAddress,
     estimatedAmount,
     nextStep,
     prevStep,
   } = useServiceBooking();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!user?.id) {
+      toast.error("Please log in to complete your booking");
+      return;
+    }
+    if (!selectedService || !selectedDate || !selectedTime || !selectedAddress) {
+      toast.error("Missing booking details. Please go back and complete all steps.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const addressId = await ensureAddressId(user.id, selectedAddress);
+      const { latitude, longitude } = await getBookingLocation();
+
+      const serviceId = Number(selectedPreference?.id || selectedService.id);
+      if (!Number.isFinite(serviceId) || serviceId <= 0) {
+        throw new Error("Invalid service selected");
+      }
+
+      await createBooking(user.id, {
+        service_id: serviceId,
+        address_id: addressId,
+        booking_date: selectedDate,
+        time_slot: selectedTime,
+        latitude,
+        longitude,
+        amount: Math.round(estimatedAmount),
+        payment_method: "cash",
+      });
+
+      toast.success("Booking created successfully");
+      nextStep();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to create booking"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div>
@@ -93,10 +148,19 @@ function PaymentStep() {
       </div>
 
       <div className="mt-8 flex gap-3">
-        <Button variant="secondary" className="flex-1" onClick={prevStep}>
+        <Button
+          variant="secondary"
+          className="flex-1"
+          onClick={prevStep}
+          disabled={isSubmitting}
+        >
           Back
         </Button>
-        <Button className="flex-1" onClick={nextStep}>
+        <Button
+          className="flex-1"
+          onClick={() => void handleConfirm()}
+          isLoading={isSubmitting}
+        >
           Confirm & Pay Cash
         </Button>
       </div>
